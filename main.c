@@ -1,27 +1,20 @@
-#include <common.h>
+#include "world/world.h"
+#include "solver/solver.h"
 
-#include <pico/stdlib.h>
-#include <hardware/pwm.h>
+#define _POSIX_C_SOURCE 199309L
 
-#include <world/world-pico.h>
-#include <solver/solver.h>
-
-#include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 int main()
 {
-    stdio_init_all();
-
     worldInit();
-    
-    bool enabled = true; 
 
     Solver solver;
     solver.currentJunction = makeJunction();
     
-    while (!done && getchar())
-    {
+    while (!done && getchar()) {
         Direction nextDir = nextDirection(solver.currentJunction);
         markDirection(solver.currentJunction, nextDir);
         moveToJunction(nextDir);
@@ -33,7 +26,9 @@ int main()
         markDirection(newJunction, DOWN);
         
         solver.currentJunction = newJunction;
+
+        printMaze();
     }
 
-    for(;;) { }
+    return 0;
 }

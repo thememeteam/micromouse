@@ -1,51 +1,44 @@
 #pragma once
 
-#include "defs.h"
+#include "../common.h"
 #include <stdio.h>
+// #include "pico/stdlib.h"
 
-uint8_t maze2[MAZE_SIZE][MAZE_SIZE];
+signed char maze[MAZE_SIZE][MAZE_SIZE];
 
-// void readMaze()
-// {
-//     FILE *thing = fopen("maze.txt", "r");
-//     if (!thing)
-//         return;
-//     for (int i = 0; i < MAZE_SIZE; i++)
-//     {
-//         for (int j = 0; j < MAZE_SIZE; j++)
-//         {
-//             char next = fgetc(thing);
-//             if (next == 'S')
-//             {
-//                 startX = i;
-//                 startY = j;
-//                 maze[i][j] = 'S';
-//             }
-//             else if (next == 'E')
-//             {
-//                 endX = i;
-//                 endY = j;
-//                 maze[i][j] = 'E';
-//             }
-//             else
-//             {
-//                 maze[i][j] = next == '#' ? -1 : 0;
-//             }
-//         }
-//         fgetc(thing);
-//     }
-// }
+int startX;
+int startY;
+
+int endX;
+int endY;
+
+int curX;
+int curY;
+
+char done = 0;
+
+char currentDirection = LEFT;
+
+char adjust(char val, char targetDir, char currentDir)
+{
+    while (currentDir != targetDir)
+    {
+        currentDir = rotateLeft(currentDir);
+        val = rotateLeft(val);
+    }
+    return val;
+}
 
 void readMaze()
 {
-    printf("Enter maze as string (temporary!): ");
-    uart_read_blocking(uart0, &maze2, sizeof(maze2));
-    memcpy((void *)maze, maze2, sizeof(maze2));
+    FILE *thing = fopen("maze.txt", "r");
+    if (!thing)
+        return;
     for (int i = 0; i < MAZE_SIZE; i++)
     {
         for (int j = 0; j < MAZE_SIZE; j++)
         {
-            signed char next = maze[i][j];
+            char next = fgetc(thing);
             if (next == 'S')
             {
                 startX = i;
@@ -63,9 +56,9 @@ void readMaze()
                 maze[i][j] = next == '#' ? -1 : 0;
             }
         }
+        fgetc(thing);
     }
-    printf("\x1b[2J");
-    printf("\x1b[00H");
+    fclose(thing);
 }
 
 void printMaze()
@@ -110,32 +103,22 @@ void printMaze()
     fflush(stdout);
 }
 
-char oppositeSide(char direction)
+void worldInit()
 {
-    char opposite = 0;
-    switch (direction)
-    {
-    case LEFT:
-        opposite = RIGHT;
-        break;
-    case UP:
-        opposite = DOWN;
-        break;
-    case RIGHT:
-        opposite = LEFT;
-        break;
-    case DOWN:
-        opposite = UP;
-        break;
-    }
+    printf("\x1b[2J");
 
-    return opposite;
+    readMaze();
+    printMaze();
+
+    curX = startX;
+    curY = startY;
+
+    char first = 1;
 }
 
-// left top right bottom
-char validSides()
+Direction validSides()
 {
-    char res = 0;
+    Direction res = 0;
     if (curY != 0 && maze[curX][curY - 1] != -1 && maze[curX][curY - 1] < 2)
         res |= LEFT;
     if (curX != 0 && maze[curX - 1][curY] != -1 && maze[curX - 1][curY] < 2)
@@ -145,22 +128,7 @@ char validSides()
     if (curX != MAZE_SIZE - 1 && maze[curX + 1][curY] != -1 && maze[curX + 1][curY] < 2)
         res |= DOWN;
 
-    return res;
-}
-
-char markedSides(char validSides)
-{
-    char marked = 0;
-    if ((validSides & LEFT) && maze[curX][curY - 1] == 1)
-        marked |= LEFT;
-    if ((validSides & UP) && maze[curX - 1][curY] == 1)
-        marked |= UP;
-    if ((validSides & RIGHT) && maze[curX][curY + 1] == 1)
-        marked |= RIGHT;
-    if ((validSides & DOWN) && maze[curX + 1][curY] == 1)
-        marked |= DOWN;
-
-    return marked;
+    return adjust(res, UP, currentDirection);
 }
 
 char canSeeEnd()
@@ -183,4 +151,59 @@ char canSeeEnd()
         res |= DOWN;
     }
     return res;
+}
+
+void moveToJunction(char direction)
+{
+    char opposite = oppositeSide(direction);
+    char direction2 = adjust(direction, currentDirection, UP);
+
+    while ((validSides() & direction) != 0)
+    {
+        char end = canSeeEnd();
+        if (end)
+        {
+            if (end & LEFT)
+            {
+                curY--;
+            }
+            else if (end & UP)
+            {
+                curX--;
+            }
+            else if (end & RIGHT)
+            {
+                curY++;
+            }
+            else if (end & DOWN)
+            {
+                curX++;
+            }
+            done = 1;
+            break;
+        }
+
+        maze[curX][curY] += 1;
+        if (direction2 & LEFT)
+        {
+            curY--;
+        }
+        else if (direction2 & UP)
+        {
+            curX--;
+        }
+        else if (direction2 & RIGHT)
+        {
+            curY++;
+        }
+        else if (direction2 & DOWN)
+        {
+            curX++;
+        }
+
+        if ((validSides() & (~(opposite | direction) & 0xf)) != 0)
+            break;
+    }
+    maze[curX][curY] = 0;
+    currentDirection = direction2;
 }

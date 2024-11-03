@@ -45,6 +45,12 @@
         "stdlib.h": "c",
         "defs.h": "c",
         "atomic": "c",
-        "cstdint": "c"
+        "cstdint": "c",
+        "util.h": "c",
+        "type_traits": "cpp",
+        "world.h": "c",
+        "solver.h": "c",
+        "common.h": "c",
+        "world-pico.h": "c"
     }
 }
